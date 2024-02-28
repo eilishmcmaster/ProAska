@@ -48,9 +48,10 @@ d7 <- remove.by.maf(d6, 0.05)
 
 #################### PRIVATE ALLELES ##########################
 
-dx <- remove.poor.quality.snps(d3, min_repro=0.96, max_missing=0.3)
+dx <- remove.poor.quality.snps(d3, min_repro=0.96, max_missing=0.3)%>% sample.one.snp.per.locus.random(., seed=214241)
 
-stats <- species_site_stats(dms = dx,pop_var = "sp",missing = 0.2,maf = 0.05,site_var = "Analysis.1",remove_monomorphic = TRUE)
+
+stats <- species_site_stats(dms = dx,pop_var = "sp",missing = 0.3,maf = 0.05,site_var = "Analysis.1",remove_monomorphic = TRUE)
 
 fitz_allele_list <- make_allele_list(dx, dx$meta$analyses[,"Analysis.1"], min_af = 0.05)
 
@@ -62,39 +63,27 @@ stats_and_pa <- merge(stats, private_total_alleles, by.x="site",by.y="population
 library(ggVennDiagram)
 
 # compare alleles of gv and sw versus all other sites
-fitz_allele_list2 <- list("All other\nsites"=unique(unlist(fitz_allele_list[c(1,3,4,5,6,8)],use.names = FALSE))%>% as.vector(),
-                          "Glenning\nValley"=fitz_allele_list[2]%>% unlist(),
-                          "Strickland\nwest"=fitz_allele_list[7]%>% unlist())
-# 
-# fitz_allele_list3 <- list("all"=unique(unlist(fitz_allele_list[c(1,3,5,6,8)],use.names = FALSE))%>% as.vector(),
-#                           "gv"=fitz_allele_list[2]%>% unlist(),
-#                           "sw"=fitz_allele_list[7]%>% unlist(),
-#                           "np"=fitz_allele_list[4]%>% unlist())
+fitz_allele_list2 <- list("All other\nsites"=(unlist(fitz_allele_list[c(1,3,4,5,6,8)],use.names = FALSE))%>% as.vector(),
+                          "Glenning\nValley"=fitz_allele_list[2]%>% unlist() %>% as.vector(),
+                          "Strickland\nWest"=fitz_allele_list[7]%>% unlist()%>% as.vector())
+
+# fitz_allele_list2 <- list("All other\nsites"=(unlist(fitz_allele_list[c(1,3,4,5,6,2,8)],use.names = FALSE))%>% as.vector(),
+#                           # "Glenning\nValley"=fitz_allele_list[2]%>% unlist() %>% as.vector(),
+#                           "Strickland\nWest"=fitz_allele_list[7]%>% unlist()%>% as.vector())
+
+fitz_allele_list3 <- list("all"=unique(unlist(fitz_allele_list[c(1,3,5,6,8)],use.names = FALSE))%>% as.vector(),
+                          "gv"=fitz_allele_list[2]%>% unlist(),
+                          "sw"=fitz_allele_list[7]%>% unlist(),
+                          "np"=fitz_allele_list[4]%>% unlist())
+
+ggVennDiagram(fitz_allele_list, label_alpha = 0, edge_size = 0.5, label_size=4)
 
 ggVennDiagram(fitz_allele_list2, label_alpha = 0, edge_size = 0.5, label_size=4)+
   scale_fill_gradient(low="lightblue",high = "white", trans="log")+theme(legend.position = "none")
 
 
-dms_1000 <- remove.loci.randomly(dx, 1000)
-gen_d5 <- new("genlight", dms_1000[["gt"]]) #convert df to genlight object for glPca function
-gen_pca <- glPca(gen_d5, parallel=TRUE, nf=5) #do pca -- this method allows the input to have NAs 
-g_pca_df <- gen_pca[["scores"]] #extract PCs 
-g_pca_df2 <- merge(g_pca_df, dms$meta$analyses, by.x=0, by.y="sample", all.y=FALSE, all.x=FALSE) # add metadata 
-
-pcnames <- paste0(colnames(g_pca_df)," (",
-                  paste(round(gen_pca[["eig"]][1:5]/sum(gen_pca[["eig"]]) *100, 2)),
-                  "%)") #create names for axes
-
-
-# species PCA
-pca_plot_pc12_species <- ggplot(g_pca_df2, aes(x=PC1, y=PC2, colour=Analysis.1))+ 
-  geom_point()+xlab(pcnames[1])+ylab(pcnames[2])+
-  theme(legend.key.size = unit(0, 'lines'),# legend.position = "right",
-        legend.text=element_text(face="italic"))
-
-
-pca_plot_pc12_species
-rowMeans(is.na(dx$gt))
+ggVennDiagram(fitz_allele_list3, label_alpha = 0, edge_size = 0.5, label_size=4)+
+  scale_fill_gradient(low="lightblue",high = "white", trans="log")+theme(legend.position = "none")
 
 
 ##################################  OPTGENMIX ############################################
