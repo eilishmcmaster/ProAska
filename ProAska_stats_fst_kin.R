@@ -333,3 +333,43 @@ draw(geo + gene, ht_gap = -gene_width)
 
 # Turn off the PNG device
 dev.off()
+
+
+
+#### map ####
+#filter meta here 
+meta_map <- m2
+# get map bounds
+bound <- c(
+  left = min(meta_map$long, na.rm = T) - 0.05, bottom = min(meta_map$lat, na.rm = T) - 0.05,
+  right = max(meta_map$long, na.rm = T) + 0.05, top = max(meta_map$lat, na.rm = T) + 0.05)
+
+# get stadia map
+ggmap::register_stadiamaps("api")
+
+map <- ggmap::get_stadiamap(bbox = bound, zoom=8, scale=4, 
+                            maptype="stamen_terrain",
+                            color="color") %>%
+  ggmap::ggmap()
+
+
+map+coord_fixed()+
+  geom_point(aes(x = long, y = lat, color = sp),
+             data = meta_map, size = 2, alpha = 1)+theme_few()
+
+# map + coord_fixed()+
+#   geom_point(aes(x = long, y = lat, color = pop_large, shape = pop_large),
+#              data = meta_all_fitz, size = 2, alpha = 1) + 
+#   scale_colour_manual(values=pop_colours, na.translate=TRUE,
+#                       guide = guide_legend("Subpopulation"))+ #override.aes = list(shape = 21)
+#   scale_shape_manual(values=pop_large_shapes, na.translate=FALSE,
+#                      guide = guide_legend("Subpopulation"))+    theme(legend.position = "bottom") +
+#   theme(legend.title=element_blank()) +
+#   labs(x = "Longitude", y = "Latitude") +
+#   ggsn::scalebar(meta_all_fitz, dist = 1, dist_unit = "km", location = "bottomright", 
+#                  st.bottom = F, st.size = 3, st.dist = 0.04,border.size =0.5,
+#                  transform = TRUE, model = "WGS84", height = 0.02) +
+#   annotation_north_arrow(location = "tr", which_north = "true", pad_x = unit(0.2, "in"), pad_y = unit(0.2, "in"), style = north_arrow_fancy_orienteering)+
+#   xlim(min(meta_all_fitz$long)-0.005, max(meta_all_fitz$long)+0.005)+
+#   ylim(min(meta_all_fitz$lat)-0.005, max(meta_all_fitz$lat)+0.005)+
+#   theme_bw()
