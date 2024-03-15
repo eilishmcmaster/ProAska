@@ -36,14 +36,25 @@ mm1 <- read.meta.data.full.analyses.df(d1, RandRbase, species, dataset)
 # attach meta
 d2 <- dart.meta.data.merge(d1, mm1)
 # keep only pro aska samples
-d3 <- remove.by.list(d2, d2$sample_names[!is.na(d2$meta$analyses[,"Analysis.1"])]) #can be used to remove specific samples 
 
-dx <- remove.poor.quality.snps(d3, min_repro=0.96, max_missing=0.2) %>% sample.one.snp.per.locus.random(., seed=214241)
+dms <- remove.poor.quality.snps(d2, min_repro=0.96, max_missing=0.3) %>% sample.one.snp.per.locus.random(., seed=214241)
+
+dms_askania <- remove.by.list(dms, dms$sample_names[!is.na(dms$meta$analyses[,"Analysis.1"])]) %>%
+  remove.poor.quality.snps(., min_repro=0.96, max_missing=0.3) 
 
 
-stats <- species_site_stats(dms = dx,pop_var = "sp",missing = 0.2, maf = 0.05,site_var = "Analysis.1",remove_monomorphic = TRUE)
+#### Stats ####
+#can be used to remove specific samples
 
-fitz_allele_list <- make_allele_list(dx, dx$meta$analyses[,"Analysis.1"], min_af = 0.05)
+stats <- species_site_stats(dms = dms, pop_var = "sp", missing = 0.3, maf = 0.05,
+                            site_var = "site", remove_monomorphic = TRUE)
+# write.xlsx(stats, '/Users/eilishmcmaster/Documents/ProAska/ProAska/outputs/Pro_sp_site_stats.xlsx')
+# stats_sp <- multispecies_stats(dms = dms, var = dms$meta$analyses[,"sp"], missing = 0.3, maf = 0.05)
+# write.xlsx(stats_sp, '/Users/eilishmcmaster/Documents/ProAska/ProAska/outputs/Pro_sp_stats.xlsx')
+
+#### private alleles ####
+
+fitz_allele_list <- make_allele_list(dms_askania, dms_askania$meta$analyses[,"Analysis.1"], min_af = 0.05)
 
 private_total_alleles <- calculate_private_alleles(fitz_allele_list)
 private_total_alleles
@@ -75,3 +86,78 @@ ggVennDiagram(fitz_allele_list2, label_alpha = 0, edge_size = 0.5, label_size=4)
 # ggVennDiagram(fitz_allele_list3, label_alpha = 0, edge_size = 0.5, label_size=4)+
 #   scale_fill_gradient(low="lightblue",high = "white", trans="log")+theme(legend.position = "none")
 
+######## kinship #############
+
+
+kin <- individual_kinship_by_pop(dms_askania, RandRbase, species, dataset,
+                                 dms_askania$meta$analyses[,"bouddi_vs_all"],
+                                 maf=0.1, mis=0.2, as_bigmat=TRUE)
+
+kin2 <- as.data.frame(kin)
+
+col_fun2 = colorRamp2(c(0,0.25,0.45), c("white", "red","black"))
+
+kin2$sample <- rownames(kin2)
+
+hm_sites2 <- merge(kin2, m2[,c("sample","site","sp", "lat", "long")],
+                   by="sample", all.x=TRUE, all.y=FALSE)
+hm_sites2 <- hm_sites2[match(rownames(kin2),hm_sites2$sample),]
+rownames(hm_sites2) <- hm_sites2[,"sample"]
+
+hm_sites2[,"sample"] <- NULL
+
+#create annotations
+aska_site_colours <-  named_list_maker(dms_askania$meta$site, "Set3", 11)
+
+site_ann <- HeatmapAnnotation(Site = hm_sites2$site,
+                              col=list(Site=aska_site_colours))
+
+site_ann_right <- rowAnnotation(Site = hm_sites2$site,
+                              col=list(Site=aska_site_colours),
+                              annotation_name_gp = gpar(fontsize = 0))
+
+hma <- Heatmap( as.matrix(hm_sites2[ , c(1:(nrow(hm_sites2)))]), 
+                col=col_fun2, 
+                bottom_annotation=c(site_ann),
+                right_annotation = c(site_ann_right),
+                name = "PLINK kinship", #title of legend
+                row_names_gp = gpar(fontsize = 6),
+                column_names_gp = gpar(fontsize = 6),
+                row_names_max_width = unit(15, "cm"),
+                border_gp = gpar(col = "black", lty = 1),
+                # column_order=order(hm_sites2$lat),
+                # row_order=order(hm_sites2$lat)
+)
+
+
+draw(hma, merge_legend = TRUE)
+
+# Set the file name and parameters
+filename <- "/Users/eilishmcmaster/Documents/ProAska/ProAska/outputs/plots/kinship.png"
+width <- 16
+height <- 12
+dpi <- 600
+units <- "cm"
+
+# Set up the PNG device
+png(filename, width = width, height = height, units = units, res = dpi)
+
+# Draw the plot
+draw(hma, merge_legend = TRUE)
+
+# Turn off the PNG device
+dev.off()
+
+
+#### relatives ####
+
+# Finding the clones
+#https://kateto.net/netscix2016.html
+
+
+kin_pl2 <- round(kin,2)
+kin_pl2[lower.tri(kin_pl2, diag=TRUE)] <- NA
+kin_long_pl <- melt(kin_pl2)
+kin_long_pl <- kin_long_pl[kin_long_pl$value>0 & !is.na(kin_long_pl$value),]
+kin_long_pl <- kin_long_pl[kin_long_pl$Var1!=kin_long_pl$Var2,]
+colnames(kin_long_pl)[3] <-"kin"
